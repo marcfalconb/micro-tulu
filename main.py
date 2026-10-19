@@ -81,7 +81,7 @@ Commands:
     # 6. Evaluate
     sub_eval = subparsers.add_parser("evaluate", help="Standardized Evaluation Harness")
     sub_eval.add_argument("--limit-per-bench", type=int, default=10)
-    sub_eval.add_argument("--output-html", type=str, default="docs/evaluation_scoreboard.html")
+    sub_eval.add_argument("--output-html", type=str, default="reports/evaluation_scoreboard.html")
 
     # 7. Inspect
     sub_insp = subparsers.add_parser("inspect", help="Visual Dataset Inspector")

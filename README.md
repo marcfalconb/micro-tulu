@@ -226,7 +226,7 @@ Micro-TÜLU includes dedicated visual dashboards for every stage:
 
 | Dashboard | File / Command | Key Metrics Visualized |
 | :--- | :--- | :--- |
-| **Progression Scoreboard** | `open docs/evaluation_scoreboard.html` | Cross-stage accuracy SVG charts, Development vs. Unseen averages, qualitative response diffs. |
+| **Progression Scoreboard** | `open reports/evaluation_scoreboard.html` | Cross-stage accuracy SVG charts, Development vs. Unseen averages, qualitative response diffs. |
 | **SFT Training Report** | `open checkpoints/sft/training_report.html` | Real-time Sum-Loss trajectory, token throughput (tok/s), pre- vs. post-training generation probes. |
 | **DPO Training Report** | `open checkpoints/dpo/training_report.html` | DPO loss curve, implicit reward margin ($\Delta R$), preference accuracy (%). |
 | **RLVR Training Report** | `open checkpoints/rlvr/training_report.html` | Verifiable reward progression, response length dynamics, SymPy diagnostic cards. |
@@ -292,7 +292,7 @@ uv run python main.py rlvr \
 # Step 6: Run Standardized Evaluation Harness
 uv run python main.py evaluate \
   --limit-per-bench 15 \
-  --output-html docs/evaluation_scoreboard.html
+  --output-html reports/evaluation_scoreboard.html
 ```
 
 ---

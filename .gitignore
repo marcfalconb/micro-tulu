@@ -14,9 +14,13 @@ data/raw/
 data/decontaminated/
 data/eval/
 checkpoints/
+reports/
 *.pt
 *.bin
 *.safetensors
 
 # OS files
 .DS_Store
+
+# Internal documentation (kept local, not public)
+docs/

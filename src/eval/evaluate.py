@@ -11,7 +11,7 @@ Evaluates models across two distinct benchmark suites:
 
 Generates:
 - Rich terminal progression scoreboard comparing Base -> SFT -> DPO -> RLVR.
-- Interactive visual HTML report (docs/evaluation_scoreboard.html).
+- Interactive visual HTML report (reports/evaluation_scoreboard.html).
 - Structured JSON benchmark log (checkpoints/evaluation_results.json).
 """
 
@@ -324,7 +324,7 @@ def evaluate_stage(
 
 def generate_scoreboard_html(
     stages: list[StageResult],
-    output_html_path: Path | str = "docs/evaluation_scoreboard.html",
+    output_html_path: Path | str = "reports/evaluation_scoreboard.html",
 ) -> Path:
     """Generate interactive visual scoreboard dashboard with comparative SVG bar charts."""
     out_file = Path(output_html_path)
@@ -484,7 +484,7 @@ def run_full_evaluation_progression(
     limit_per_bench: int = 15,
     base_model_name: str = "unsloth/Llama-3.2-1B",
     device: str = "mps" if torch.backends.mps.is_available() else "cpu",
-    output_html: str = "docs/evaluation_scoreboard.html",
+    output_html: str = "reports/evaluation_scoreboard.html",
     output_json: str = "checkpoints/evaluation_results.json",
 ) -> list[StageResult]:
     """Execute evaluation across Base, SFT, DPO, and RLVR checkpoints."""
@@ -555,7 +555,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Micro-TÜLU Standardized Evaluation Harness")
     parser.add_argument("--limit-per-bench", type=int, default=10, help="Number of benchmark items to evaluate per benchmark")
     parser.add_argument("--base-model", type=str, default="unsloth/Llama-3.2-1B", help="Base model architecture")
-    parser.add_argument("--output-html", type=str, default="docs/evaluation_scoreboard.html", help="Path to output HTML scoreboard")
+    parser.add_argument("--output-html", type=str, default="reports/evaluation_scoreboard.html", help="Path to output HTML scoreboard")
     parser.add_argument("--output-json", type=str, default="checkpoints/evaluation_results.json", help="Path to output JSON metrics")
     args = parser.parse_args()
 
