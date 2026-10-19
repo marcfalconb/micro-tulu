@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Data and Artifacts
+data/raw/
+data/decontaminated/
+data/eval/
+checkpoints/
+*.pt
+*.bin
+*.safetensors
+
+# OS files
+.DS_Store
