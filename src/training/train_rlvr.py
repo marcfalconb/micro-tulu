@@ -40,6 +40,11 @@ from transformers import (
 )
 
 from src.envs.verifiers import DeterministicVerifier
+from src.training.loss import (
+    apply_reasoning_budget_penalty,
+    compute_olmorl_advantages,
+    filter_zero_gradient_groups,
+)
 from src.training.rlvr_visual_logger import RLVRVisualLogger
 from src.training.sft_dataset import ensure_chat_template
 
@@ -143,6 +148,10 @@ def train_rlvr(
     non_eos_penalty: float = -10.0,
     eval_interval: int = 5,
     limit_samples: int | None = None,
+    olmorl: bool = False,
+    max_thinking_tokens: int | None = None,
+    clip_eps_low: float = 0.20,
+    clip_eps_high: float = 0.28,
     device: str = "mps" if torch.backends.mps.is_available() else "cpu",
 ) -> None:
     """Execute RLVR policy gradient training on Apple Silicon MPS."""
@@ -255,15 +264,36 @@ def train_rlvr(
                     "details": v_res.details,
                 })
 
+        # Apply test-time reasoning budget penalty (Kimi K3 Section 3.2)
+        if max_thinking_tokens is not None:
+            rewards = apply_reasoning_budget_penalty(
+                rewards=rewards,
+                lengths=gen_lengths,
+                max_thinking_tokens=max_thinking_tokens,
+                penalty_reward=-1.0,
+            )
+
         rewards_tensor = torch.tensor(rewards, dtype=torch.float32, device=device)
         mean_r = rewards_tensor.mean()
         std_r = rewards_tensor.std()
 
-        # Group-Relative Advantages: A_i = (R_i - mean(R)) / (std(R) + eps)
-        if std_r > 1e-6:
-            advantages = (rewards_tensor - mean_r) / (std_r + 1e-8)
+        if olmorl:
+            # OlmoRL unnormalized centered advantage: A_i = r_i - mu
+            advantages = compute_olmorl_advantages(
+                rewards_tensor, group_size=group_size, unnormalized=True
+            )
+            # Zero-gradient filtering: skip group if all rewards identical
+            valid_mask, num_filtered = filter_zero_gradient_groups(
+                rewards_tensor, group_size=group_size
+            )
+            is_group_informative = (num_filtered == 0)
         else:
-            advantages = rewards_tensor - mean_r
+            # Group-Relative Advantages: A_i = (R_i - mean(R)) / (std(R) + eps)
+            if std_r > 1e-6:
+                advantages = (rewards_tensor - mean_r) / (std_r + 1e-8)
+            else:
+                advantages = rewards_tensor - mean_r
+            is_group_informative = True
 
         # 3. Policy Update Phase: Compute Policy Gradient
         model.train()
@@ -271,37 +301,44 @@ def train_rlvr(
 
         total_loss = torch.tensor(0.0, device=device)
 
-        for g in range(group_size):
-            adv = advantages[g]
-            if adv.abs() < 1e-8:
-                continue
+        if is_group_informative:
+            total_active_tokens = sum(gen_lengths) if olmorl else group_size
+            for g in range(group_size):
+                adv = advantages[g]
+                if adv.abs() < 1e-8:
+                    continue
 
-            full_seq = outputs[g].unsqueeze(0)
-            seq_len = full_seq.shape[1]
+                full_seq = outputs[g].unsqueeze(0)
+                seq_len = full_seq.shape[1]
 
-            # Labels: -100 for prompt tokens, token IDs for generated tokens
-            labels = torch.full((1, seq_len), -100, dtype=torch.long, device=device)
-            labels[0, prompt_len:] = full_seq[0, prompt_len:]
+                # Labels: -100 for prompt tokens, token IDs for generated tokens
+                labels = torch.full((1, seq_len), -100, dtype=torch.long, device=device)
+                labels[0, prompt_len:] = full_seq[0, prompt_len:]
 
-            out = model(input_ids=full_seq)
-            shift_logits = out.logits[..., :-1, :].contiguous()
-            shift_labels = labels[..., 1:].contiguous()
+                out = model(input_ids=full_seq)
+                shift_logits = out.logits[..., :-1, :].contiguous()
+                shift_labels = labels[..., 1:].contiguous()
 
-            vocab_size = shift_logits.size(-1)
-            token_losses = loss_fct(shift_logits.view(-1, vocab_size), shift_labels.view(-1))
-            active_mask = (shift_labels.view(-1) != -100)
+                vocab_size = shift_logits.size(-1)
+                token_losses = loss_fct(shift_logits.view(-1, vocab_size), shift_labels.view(-1))
+                active_mask = (shift_labels.view(-1) != -100)
 
-            # Sum of log probabilities: sum_t log P(y_t | x, y_<t)
-            sum_logprob = -token_losses[active_mask].sum()
+                # Sum of log probabilities: sum_t log P(y_t | x, y_<t)
+                sum_logprob = -token_losses[active_mask].sum()
 
-            # Policy gradient loss for this rollout: - sum_logprob * advantage
-            policy_loss = - (sum_logprob * adv) / group_size
-            policy_loss.backward()
-            total_loss += policy_loss.detach()
+                # Policy gradient loss for this rollout:
+                if olmorl:
+                    # OlmoRL Token-Level Loss Reduction
+                    policy_loss = - (sum_logprob * adv) / max(1, total_active_tokens)
+                else:
+                    policy_loss = - (sum_logprob * adv) / group_size
 
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
-        scheduler.step()
+                policy_loss.backward()
+                total_loss += policy_loss.detach()
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            scheduler.step()
 
         global_step += 1
         curr_lr = scheduler.get_last_lr()[0]
@@ -352,6 +389,10 @@ def main() -> None:
     parser.add_argument("--max-new-tokens", type=int, default=128, help="Max generated tokens per rollout")
     parser.add_argument("--eval-interval", type=int, default=5, help="Interval for rollout logging")
     parser.add_argument("--limit-samples", type=int, default=None, help="Optional limit on loaded prompts")
+    parser.add_argument("--olmorl", action="store_true", help="Enable OlmoRL unnormalized advantage, zero-grad filtering, and token loss")
+    parser.add_argument("--max-thinking-tokens", type=int, default=None, help="Max reasoning token budget before -1.0 penalty (Kimi K3)")
+    parser.add_argument("--clip-eps-low", type=float, default=0.20, help="Lower clipping epsilon")
+    parser.add_argument("--clip-eps-high", type=float, default=0.28, help="Upper clipping epsilon (clip-higher)")
     args = parser.parse_args()
 
     train_rlvr(
@@ -365,6 +406,10 @@ def main() -> None:
         max_new_tokens=args.max_new_tokens,
         eval_interval=args.eval_interval,
         limit_samples=args.limit_samples,
+        olmorl=args.olmorl,
+        max_thinking_tokens=args.max_thinking_tokens,
+        clip_eps_low=args.clip_eps_low,
+        clip_eps_high=args.clip_eps_high,
     )
 
 
