@@ -3,7 +3,7 @@
 [![PyTorch 2.14](https://img.shields.io/badge/PyTorch-2.14_MPS-EE4C2C.svg?logo=pytorch)](https://pytorch.org/)
 [![PEFT LoRA](https://img.shields.io/badge/PEFT-LoRA_BF16-blue.svg)](https://github.com/huggingface/peft)
 [![UV](https://img.shields.io/badge/Package_Manager-uv-2B5B84.svg)](https://github.com/astral-sh/uv)
-[![Tests](https://img.shields.io/badge/Tests-23%2F23%20Passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-40%2F40%20Passing-brightgreen.svg)]()
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 An institutional-grade, modular, local post-training pipeline faithfully implementing the Allen Institute for AI's **TÜLU 3** methodology (*"TÜLU 3: Pushing Frontiers in Open Language Model Post-Training"*, Lambert et al., Nov 2024).
@@ -13,20 +13,21 @@ Engineered specifically for **Apple Silicon (M-series / Metal Performance Shader
 ---
 
 ## Table of Contents
-1. [Scientific Abstract](#-scientific-abstract)
-2. [End-to-End Post-Training Lifecycle](#-end-to-end-post-training-lifecycle)
-3. [Empirical Results & Progression Scoreboard](#-empirical-results--progression-scoreboard)
-4. [Phase-by-Phase Technical Architecture](#-phase-by-phase-technical-architecture)
+1. [Scientific Abstract](#scientific-abstract)
+2. [End-to-End Post-Training Lifecycle](#end-to-end-post-training-lifecycle)
+3. [Empirical Results & Progression Scoreboard](#empirical-results--progression-scoreboard)
+4. [Phase-by-Phase Technical Architecture](#phase-by-phase-technical-architecture)
    - [Phase 1: Inverted 8-Gram Decontamination](#phase-1-data-engine--8-gram-decontamination)
    - [Phase 2: SFT & Equal Token-Weighting](#phase-2-supervised-fine-tuning-sft--equal-token-weighting)
    - [Phase 3: Length-Normalized DPO](#phase-3-length-normalized-direct-preference-optimization-dpo)
    - [Phase 4: RLVR & Deterministic SymPy Verifiers](#phase-4-reinforcement-learning-with-verifiable-rewards-rlvr)
    - [Phase 5: Standardized Evaluation Harness](#phase-5-standardized-evaluation-harness)
-5. [Apple Silicon & MPS Hardware Optimizations](#-apple-silicon--mps-hardware-optimizations)
-6. [Interactive Visual Verification Suite](#-interactive-visual-verification-suite)
-7. [Quickstart & CLI Reference](#-quickstart--cli-reference)
-8. [Automated Test Suite](#-automated-test-suite)
-9. [Academic Citations](#-academic-citations)
+   - [Phase 6: Frontier Post-Training & Architecture (OLMo 3 & Kimi K3)](#phase-6-frontier-post-training--architecture-olmo-3--kimi-k3)
+5. [Apple Silicon & MPS Hardware Optimizations](#apple-silicon--mps-hardware-optimizations)
+6. [Interactive Visual Verification Suite](#interactive-visual-verification-suite)
+7. [Quickstart & CLI Reference](#quickstart--cli-reference)
+8. [Automated Test Suite](#automated-test-suite)
+9. [Academic Citations](#academic-citations)
 
 ---
 
@@ -206,7 +207,45 @@ Bipartite evaluation across Development (GSM8K, MATH-500, IFEval) and Unseen hel
 
 ---
 
-## ⚡ Apple Silicon & MPS Hardware Optimizations
+### Phase 6: Frontier Post-Training & Architecture (OLMo 3 & Kimi K3)
+
+Integrating cutting-edge post-training and architectural mechanisms from **OLMo 3** (*Allen Institute for AI, 2026*) and **Kimi K3** (*Moonshot AI, 2026*):
+
+#### 1. OlmoRL: Difficulty-Invariant Policy Optimization
+Vanilla GRPO divides centered rewards by group standard deviation $\sigma_R$, introducing severe difficulty bias when $\sigma_R \to 0$ on challenging outlier problems. OlmoRL replaces normalized advantage with the **centered reward delta**:
+$$A_i = r(x, y_i) - \frac{1}{G} \sum_{j=1}^G r(x, y_j)$$
+Combined with zero-gradient sample filtering, token-level loss reduction, zero KL penalty against reference models, and asymmetric PPO clipping ($\epsilon_{\text{low}}=0.20, \epsilon_{\text{high}}=0.28$).
+
+#### 2. Test-Time Reasoning Effort Budget Control
+To prevent verbosity reward hacking during extended rollouts, reasoning length is strictly bounded:
+$$r_{\text{effective}}(x, y) = \begin{cases} -1.0 & \text{if } |y| > \tau \cdot b_0(x) \\ r(x, y) & \text{otherwise} \end{cases}$$
+
+#### 3. Delta Learning in DPO (Dolci Think DPO)
+Overcoming imitation learning saturation on reasoning traces by pairing frontier model trajectories ($y_c \sim \text{Qwen-3-32B}$) with weak baselines ($y_r \sim \text{Qwen-3-0.6B}$) on identical prompts:
+$$\Delta r_{\text{norm}} = \beta \left( \frac{\log \frac{\pi_\theta(y_c \mid x)}{\pi_{\text{ref}}(y_c \mid x)}}{|y_c|} - \frac{\log \frac{\pi_\theta(y_r \mid x)}{\pi_{\text{ref}}(y_r \mid x)}}{|y_r|} \right)$$
+
+#### 4. SiTU-GLU Bounded Activation Function
+Eliminates unbounded activation outliers in SwiGLU by applying smooth hyperbolic tangent soft-caps:
+$$\text{SiTU-GLU}(x) = \left[\beta_1 \tanh\left(\frac{W_g x}{\beta_1}\right) \odot \sigma(W_g x)\right] \odot \left[\beta_2 \tanh\left(\frac{W_u x}{\beta_2}\right)\right]$$
+where $\beta_1=4.0$ and $\beta_2=25.0$, mathematically bounding outputs to $|f(x)| \le \beta_1 \beta_2 = 100.0$ and preventing low-precision (FP8 / MXFP4) overflow.
+
+#### 5. Block Attention Residuals (Block AttnRes)
+Treats network depth analogously to sequence length, replacing sequential additive bottlenecks with selective softmax depth attention:
+$$\alpha_{i \to l} = \text{softmax}\left( w_l^\top \text{RMSNorm}(b_i) \cdot \frac{1}{\sqrt{d}} \right), \qquad h_l = \sum_{i=0}^{K-1} \alpha_{i \to l} \cdot b_i$$
+
+#### 6. Stable LatentMoE & Quantile Balancing (QB)
+Decouples full model width $d$ from routed expert width $\ell \ll d$ (slashing all-to-all parameter traffic by $\sim 75\%$), stabilizing expert combinations with pre-up RMSNorm:
+$$u = \sum_{i \in \mathcal{T}_k(x)} p_i E_i^{\text{routed}}(W_\downarrow x), \qquad y = \sum_{j=1}^{N_s} E_j^{\text{shared}}(x) + W_\uparrow \text{RMSNorm}(u)$$
+Router dispatch employs auxiliary-loss-free Quantile Balancing with adaptive bias $b_j$: $\mathcal{T}_i = \text{argtopk}(s_i + b, k)$, omitting bias from mixture weights $p_{i, j}$.
+
+#### 7. Per-Head Muon & Multi-Teacher On-Policy Distillation (MOPD)
+- **Per-Head Muon:** Partitions 2D attention matrices into head slices before 5th-order Newton-Schulz matrix orthogonalization, equalizing spectral learning rates across heads.
+- **MOPD:** Merges multi-domain expert policies into a unified student via token-level on-policy reverse-KL distillation with clipped advantage:
+  $$r_{\text{opd}}(y_t) = \text{clip}\left( \log \frac{\pi_{\text{teacher}}(y_t \mid x, y_{<t})}{\pi_\theta(y_t \mid x, y_{<t})}, -R_{\max}, R_{\max} \right)$$
+
+---
+
+## Apple Silicon & MPS Hardware Optimizations
 
 | Technique | Implementation | Impact on Apple Silicon |
 | :--- | :--- | :--- |
@@ -220,7 +259,7 @@ Bipartite evaluation across Development (GSM8K, MATH-500, IFEval) and Unseen hel
 
 ---
 
-## 🖥️ Interactive Visual Verification Suite
+## Interactive Visual Verification Suite
 
 Micro-TÜLU includes dedicated visual dashboards for every stage:
 
@@ -327,15 +366,32 @@ tests/test_rlvr.py::test_rlvr_visual_logger_and_report PASSED
 tests/test_eval.py::test_extract_mmlu_choice PASSED
 tests/test_eval.py::test_generate_scoreboard_html PASSED
 tests/test_eval.py::test_load_eval_suite_structure PASSED
+tests/test_olmorl.py::test_unnormalized_advantage PASSED
+tests/test_olmorl.py::test_zero_gradient_filter PASSED
+tests/test_olmorl.py::test_asymmetric_clip_higher PASSED
+tests/test_olmorl.py::test_token_level_loss_reduction PASSED
+tests/test_olmorl.py::test_reasoning_budget_penalty PASSED
+tests/test_delta_dpo.py::test_delta_pair_formatting PASSED
+tests/test_delta_dpo.py::test_think_tag_validation PASSED
+tests/test_delta_dpo.py::test_length_normalized_delta_dpo_loss PASSED
+tests/test_delta_dpo.py::test_build_synthetic_delta_dataset PASSED
+tests/test_architectures.py::test_situglu_forward_and_bound PASSED
+tests/test_architectures.py::test_situglu_backward_mps PASSED
+tests/test_architectures.py::test_block_attnres_forward_and_backward PASSED
+tests/test_latent_moe.py::test_latent_moe_shapes_and_routing PASSED
+tests/test_latent_moe.py::test_pre_up_rmsnorm_stability PASSED
+tests/test_latent_moe.py::test_quantile_balancing_load PASSED
+tests/test_muon_and_mopd.py::test_per_head_muon_orthogonalization PASSED
+tests/test_muon_and_mopd.py::test_mopd_clipped_log_ratio PASSED
 
-======================== 23 passed in 9.8s ========================
+======================== 40 passed in 11.2s ========================
 ```
 
 ---
 
 ## Academic Citations
 
-If you use or reference Micro-TÜLU in your research, please cite the foundational TÜLU 3 paper:
+If you use or reference Micro-TÜLU in your research, please cite the foundational literature:
 
 ```bibtex
 @article{lambert2024tulu3,
@@ -345,6 +401,21 @@ If you use or reference Micro-TÜLU in your research, please cite the foundation
           and Dziedzic, Adam and Hajishirzi, Hannaneh and others},
   journal={arXiv preprint arXiv:2411.15124},
   year={2024}
+}
+
+@article{ettinger2026olmo3,
+  title={OLMo 3},
+  author={Ettinger, Allyson and Lambert, Nathan and Soldaini, Luca and Groeneveld, Dirk 
+          and Smith, Noah A. and Hajishirzi, Hannaneh and others},
+  journal={Allen Institute for AI Technical Report},
+  year={2026}
+}
+
+@article{moonshot2026kimik3,
+  title={Kimi K3: Open Frontier Intelligence},
+  author={{Kimi Team} and Moonshot AI},
+  journal={Moonshot AI Technical Report},
+  year={2026}
 }
 
 @article{dubey2024llama,
