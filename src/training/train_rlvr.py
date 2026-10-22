@@ -365,7 +365,11 @@ def train_rlvr(
     hyperparams = {
         "Base Model": base_model_name,
         "Init Checkpoint": model_name_or_path,
-        "Algorithm": "RLVR with Group-Relative Advantages (GRPO)",
+        "Algorithm": "OlmoRL (Unnormalized Advantage + Token Loss)" if olmorl else "RLVR with Group-Relative Advantages (GRPO)",
+        "OlmoRL Enabled": str(olmorl),
+        "Max Thinking Tokens": str(max_thinking_tokens) if max_thinking_tokens else "Unconstrained",
+        "Clip Epsilon Low": str(clip_eps_low),
+        "Clip Epsilon High": str(clip_eps_high),
         "Reward Signal": "Deterministic Rules (SymPy Math + IFEval)",
         "Group Size (G)": group_size,
         "Learning Rate": learning_rate,
