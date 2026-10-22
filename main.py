@@ -77,6 +77,8 @@ Commands:
     sub_rlvr.add_argument("--group-size", type=int, default=4)
     sub_rlvr.add_argument("--lr", type=float, default=3e-7)
     sub_rlvr.add_argument("--max-steps", type=int, default=20)
+    sub_rlvr.add_argument("--olmorl", action="store_true", help="Enable OlmoRL unnormalized advantage and zero-grad filter")
+    sub_rlvr.add_argument("--max-thinking-tokens", type=int, default=None, help="Max reasoning token budget before -1.0 penalty")
 
     # 6. Evaluate
     sub_eval = subparsers.add_parser("evaluate", help="Standardized Evaluation Harness")
@@ -145,6 +147,8 @@ Commands:
             group_size=args.group_size,
             learning_rate=args.lr,
             max_steps=args.max_steps,
+            olmorl=args.olmorl,
+            max_thinking_tokens=args.max_thinking_tokens,
         )
 
     elif args.command == "evaluate":

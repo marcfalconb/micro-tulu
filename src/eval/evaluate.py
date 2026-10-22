@@ -502,6 +502,8 @@ def run_full_evaluation_progression(
         stages_to_eval.append(("Stage 2: DPO (Length-Norm)", "checkpoints/dpo"))
     if Path("checkpoints/rlvr/adapter_config.json").exists():
         stages_to_eval.append(("Stage 3: RLVR (Verifiable)", "checkpoints/rlvr"))
+    if Path("checkpoints/olmorl/adapter_config.json").exists():
+        stages_to_eval.append(("Stage 4: OlmoRL (Frontier)", "checkpoints/olmorl"))
 
     stage_results: list[StageResult] = []
     for stage_name, ckpt in stages_to_eval:
