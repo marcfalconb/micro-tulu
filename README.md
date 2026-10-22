@@ -1,4 +1,4 @@
-# 🔬 Micro-TÜLU: Local End-to-End LLM Post-Training Pipeline
+# Micro-TÜLU: Local End-to-End LLM Post-Training Pipeline
 
 [![PyTorch 2.14](https://img.shields.io/badge/PyTorch-2.14_MPS-EE4C2C.svg?logo=pytorch)](https://pytorch.org/)
 [![PEFT LoRA](https://img.shields.io/badge/PEFT-LoRA_BF16-blue.svg)](https://github.com/huggingface/peft)
@@ -12,7 +12,7 @@ Engineered specifically for **Apple Silicon (M-series / Metal Performance Shader
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 1. [Scientific Abstract](#-scientific-abstract)
 2. [End-to-End Post-Training Lifecycle](#-end-to-end-post-training-lifecycle)
 3. [Empirical Results & Progression Scoreboard](#-empirical-results--progression-scoreboard)
@@ -30,7 +30,7 @@ Engineered specifically for **Apple Silicon (M-series / Metal Performance Shader
 
 ---
 
-## 🔬 Scientific Abstract
+## Scientific Abstract
 
 Post-training has emerged as the definitive driver of modern LLM reasoning and instruction-following capabilities. While foundation models acquire vast world knowledge during pre-training, their alignment, reasoning precision, and task compliance are governed entirely by post-training recipes. 
 
@@ -42,7 +42,7 @@ Post-training has emerged as the definitive driver of modern LLM reasoning and i
 
 ---
 
-## 🏗️ End-to-End Post-Training Lifecycle
+## End-to-End Post-Training Lifecycle
 
 ```
                                  [ Evaluation Benchmark Test Sets ]
@@ -90,19 +90,19 @@ Post-training has emerged as the definitive driver of modern LLM reasoning and i
 
 ---
 
-## 📊 Empirical Results & Progression Scoreboard
+## Empirical Results & Progression Scoreboard
 
 Following TÜLU 3 evaluation principles, every model checkpoint was benchmarked under greedy decoding (`temperature=0.0`) across Development and Unseen held-out suites:
 
 ```
-                          🏆 Micro-TÜLU Standardized Evaluation Scoreboard                          
+                          Micro-TÜLU Standardized Evaluation Scoreboard                          
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━┓
 ┃ Stage                      ┃ Overall Avg ┃ Dev Avg ┃ Unseen Avg ┃ GSM8K ┃  MATH ┃ IFEval ┃  MMLU ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━┩
 │ Base Llama-3.2-1B          │       22.5% │   20.0% │      30.0% │  0.0% │  0.0% │  60.0% │ 30.0% │
 │ Stage 1: SFT (Sum-Loss)    │       25.0% │   26.7% │      20.0% │ 10.0% │ 10.0% │  60.0% │ 20.0% │
 │ Stage 2: DPO (Length-Norm) │       25.0% │   26.7% │      20.0% │ 10.0% │ 10.0% │  60.0% │ 20.0% │
-│ Stage 3: RLVR (Verifiable) │     🔥 27.5%│ 🔥 30.0%│      20.0% │🔥20.0%│ 10.0% │  60.0% │ 20.0% │
+│ Stage 3: RLVR (Verifiable) │       27.5%│    30.0%│      20.0% │  20.0%│ 10.0% │  60.0% │ 20.0% │
 └────────────────────────────┴─────────────┴─────────┴────────────┴───────┴───────┴────────┴───────┘
 ```
 
@@ -113,7 +113,7 @@ Following TÜLU 3 evaluation principles, every model checkpoint was benchmarked 
 
 ---
 
-## 🧩 Phase-by-Phase Technical Architecture
+## Phase-by-Phase Technical Architecture
 
 ### Phase 1: Data Engine & 8-Gram Decontamination
 
@@ -235,7 +235,7 @@ Micro-TÜLU includes dedicated visual dashboards for every stage:
 
 ---
 
-## 🚀 Quickstart & CLI Reference
+## Quickstart & CLI Reference
 
 ### 1. Environment Installation
 ```bash
@@ -297,7 +297,7 @@ uv run python main.py evaluate \
 
 ---
 
-## 🧪 Automated Test Suite
+## Automated Test Suite
 
 Micro-TÜLU features a comprehensive unit test suite covering every phase:
 ```bash
@@ -333,9 +333,9 @@ tests/test_eval.py::test_load_eval_suite_structure PASSED
 
 ---
 
-## 📚 Academic Citations
+## Academic Citations
 
-If you use or reference Micro-TÜLU in your research or portfolio, please cite the foundational TÜLU 3 paper:
+If you use or reference Micro-TÜLU in your research, please cite the foundational TÜLU 3 paper:
 
 ```bibtex
 @article{lambert2024tulu3,
@@ -367,7 +367,7 @@ If you use or reference Micro-TÜLU in your research or portfolio, please cite t
 
 ---
 
-## 📄 License
+## License
 This project is licensed under the [Apache License 2.0](LICENSE).
 Base model weights are subject to the Meta Llama 3.2 Community License Agreement.
 Dataset mixtures courtesy of the Allen Institute for AI (AI2).
